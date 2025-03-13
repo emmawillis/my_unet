@@ -1,0 +1,14 @@
+module avail 
+    to list available versions
+
+module list 
+    to see active ones
+
+
+module load anaconda/3.9
+module load pytorch2.1-cuda11.8-python3.9
+conda activate my_unet_env
+
+^ these are all in the slurm_setup in submit.py now so might be able to run it without any setup
+just:
+python submit.py
