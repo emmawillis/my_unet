@@ -4,25 +4,58 @@ from tqdm import tqdm  # For progress bar
 import torch.nn as nn
 import torch.optim as optim
 from torchvision import transforms
+from torchvision.utils import save_image
+from torch.utils.data import DataLoader
+import os
 
 from dataloader import ProstateMRISegmentationDataset
 from unet import UNet
 
 # Device configuration (GPU or CPU)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print("device IN submitit (module level): ", device)
 
-def validate_unet(model, val_loader, loss_fn):
+# Standardize intensities (see utils/analyze_dataset.py)
+DATASET_PIXEL_MEAN = 0.1726
+DATASET_PIXEL_STD = 0.1411
+
+
+OUTPUT_DIR = "predictions"
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+def save_predictions(images, outputs, filenames, epoch):
+    """
+    Save predictions as images.
+    Args:
+        images: Input images (batch, C, H, W)
+        outputs: Predicted masks (batch, H, W)
+        filenames: List of original filenames to match ground truth
+        epoch: Current epoch (for tracking)
+    """
+    outputs = torch.argmax(outputs, dim=1)  # Convert from (batch, 4, H, W) -> (batch, H, W)
+
+    print("Unique values in predicted masks:", torch.unique(outputs))  # Check class distribution
+
+    for i in range(images.shape[0]):
+        pred_mask = outputs[i].cpu().float()  # Convert to float for saving
+        os.makedirs(f"{OUTPUT_DIR}/epoch{epoch}", exist_ok=True)
+        save_path = os.path.join(f"{OUTPUT_DIR}/epoch{epoch}", f"{filenames[i]}.png")
+        save_image(pred_mask.unsqueeze(0), save_path)  # Add channel dim for saving
+        print(f"Saved: {save_path}")
+
+def validate_unet(model, val_loader, loss_fn, epoch):
     model.eval()  # Set to evaluation mode
     val_loss = 0
 
     with torch.no_grad():  # Disable gradient computation
-        for images, masks in val_loader:
+        for batch_idx, (images, masks, filenames) in enumerate(val_loader):
             images, masks = images.to(device), masks.to(device)
             outputs = model(images)
 
-            loss = loss_fn(outputs, masks)
+            loss = loss_fn(outputs, masks.squeeze(1).long())
             val_loss += loss.item()
+
+            if batch_idx == 0:
+                save_predictions(images, outputs, filenames, epoch)
 
     print(f"Validation Loss: {val_loss / len(val_loader):.4f}")
     model.train()  # Switch back to training mode
@@ -40,7 +73,7 @@ def train_unet(model, train_loader, val_loader, optimizer, loss_fn, num_epochs=2
 
     for epoch in range(num_epochs):
         epoch_loss = 0
-        for images, masks in tqdm(train_loader, desc=f"Epoch {epoch+1}/{num_epochs}"):
+        for images, masks, _filenames in tqdm(train_loader, desc=f"Epoch {epoch+1}/{num_epochs}"):
             images, masks = images.to(device), masks.to(device)
 
             optimizer.zero_grad()  # Reset gradients
@@ -49,7 +82,7 @@ def train_unet(model, train_loader, val_loader, optimizer, loss_fn, num_epochs=2
             outputs = model(images)  # Output shape: (batch, 4, 256, 256)
 
             # Compute loss (CrossEntropyLoss expects class labels, not one-hot masks)
-            loss = loss_fn(outputs, masks)  # `masks` should have shape (batch, 256, 256) with values 0-3
+            loss = loss_fn(outputs, masks.squeeze(1).long())  # `masks` should have shape (batch, 256, 256) with values 0-3
 
             # Backpropagation
             loss.backward()
@@ -61,7 +94,7 @@ def train_unet(model, train_loader, val_loader, optimizer, loss_fn, num_epochs=2
 
         # Run validation every few epochs
         if (epoch + 1) % 5 == 0:
-            val_loss += validate_unet(model, val_loader)
+            val_loss = validate_unet(model, val_loader, loss_fn, epoch)
 
             if val_loss < best_loss:
                 best_loss = val_loss
@@ -80,29 +113,24 @@ def train_unet(model, train_loader, val_loader, optimizer, loss_fn, num_epochs=2
 
 
 def train():
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print("device IN submitit: ", device)
 
     # Initialize the model
-    model = UNet(in_channels=3, out_channels=4).to(device)  # 4 output channels for multi-class
+    model = UNet(in_channels=3, out_channels=4).to(device)
 
     # Define loss function and optimizer
     loss_fn = nn.CrossEntropyLoss()  # Suitable for multi-class masks
     optimizer = optim.Adam(model.parameters(), lr=1e-4)
 
     mri_transform = transforms.Compose([
-        transforms.Resize((256, 256)),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[mean_intensity], std=[std_intensity])  # Standardize intensities (see utils/analyze_dataset.py)
+        transforms.Normalize(mean=[DATASET_PIXEL_MEAN], std=[DATASET_PIXEL_STD])
     ])
 
-    mask_transform = transforms.Compose([
-        transforms.Resize((256, 256), interpolation=transforms.InterpolationMode.NEAREST)
-        transforms.ToTensor(),
-    ])
+    train_dataset = ProstateMRISegmentationDataset('dataset_split/train/images', 'dataset_split/train/masks', transform=mri_transform)
+    test_dataset = ProstateMRISegmentationDataset('dataset_split/test/images', 'dataset_split/test/masks', transform=mri_transform)
 
-    train_loader = ProstateMRISegmentationDataset('dataset_split/train/images', 'dataset_split/train/images', transform=mri_transform, target_transform=mask_transform)
-    test_loader = ProstateMRISegmentationDataset('dataset_split/test/images', 'dataset_split/test/images', transform=mri_transform, target_transform=mask_transform)
+    train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True, num_workers=4)
+    test_loader = DataLoader(test_dataset, batch_size=16, shuffle=False, num_workers=4)
 
-    train_unet(model, train_loader, test_loader, optimizer, loss_fn, num_epochs=20)
+    train_unet(model, train_loader, test_loader, optimizer, loss_fn, num_epochs=100)
 

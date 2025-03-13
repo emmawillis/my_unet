@@ -13,10 +13,6 @@ def compute_mean_std():
     mri_dataset = ProstateMRISegmentationDataset(
         image_dir="dataset_split/train/images",
         mask_dir="dataset_split/train/masks",
-        transform=transforms.Compose([
-            transforms.Resize((256, 256)),  
-            transforms.ToTensor()  # No normalization yet!
-        ])
     )
     loader = DataLoader(mri_dataset, batch_size=16, shuffle=False, num_workers=4)
     mean, std = 0.0, 0.0
@@ -34,3 +30,4 @@ def compute_mean_std():
     return mean.item(), std.item()
 
 
+compute_mean_std()

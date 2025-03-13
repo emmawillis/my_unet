@@ -75,6 +75,8 @@ its index based - need to load all and then fetch by index in the list
 in dataloader transform transforms the input
 target_transform transforms the expected output (mask in this case)
 
+needs to be transformed to a tensor first if its an image
+
 -----
 
 In Python, when you import a module, any top-level code (outside functions or classes) 

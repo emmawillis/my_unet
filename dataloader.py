@@ -8,7 +8,6 @@ import numpy as np
 
 # Class index mapping
 GLEASON_CLASSES = {"healthy": 0, "gleason-3": 1, "gleason-4": 2, "gleason-5": 3}
-# TODO: Might want to group into "clinically significant: yes/no" (healthy+3 vs. 4+5)
 
 class ProstateMRISegmentationDataset(Dataset):
     def __init__(self, image_dir, mask_dir, transform=None, target_transform=None):
@@ -54,13 +53,30 @@ class ProstateMRISegmentationDataset(Dataset):
                 # Merge overlapping regions by taking the max class value
                 mask = np.maximum(mask, mask_layer)
 
-        # Convert mask to tensor (single-channel)
-        mask = torch.tensor(mask, dtype=torch.long)  # Shape: (H, W), values in {0,1,2,3}
+        # Convert NumPy mask to PIL before applying transforms
+        mask = Image.fromarray(mask)
 
         # Apply transformations
+        base_transform = transforms.Compose([
+            transforms.Resize((256, 256)),
+            transforms.ToTensor(),
+        ])
+        image = base_transform(image)
+
         if self.transform:
             image = self.transform(image)
+
+        base_mask_transform = transforms.Compose([
+            transforms.Resize((256, 256), interpolation=transforms.InterpolationMode.NEAREST),
+            transforms.ToTensor(),
+        ])
+        mask = base_mask_transform(mask)
+        
         if self.target_transform:
             mask = self.target_transform(mask)
 
-        return image, mask
+        # Convert mask to tensor after transformations
+        mask = torch.tensor(np.array(mask), dtype=torch.long)  # Ensure class labels are long ints
+        print("Unique values in ground truth mask:", torch.unique(mask))
+
+        return image, mask, image_filename
