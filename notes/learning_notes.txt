@@ -1,0 +1,76 @@
+
+
+In Python, the parent class’s __init__ method is not automatically called when a child class is instantiated. You must explicitly call super().__init__() to initialize nn.Module correctly.
+
+nn.Module manages important internal features (e.g., parameter registration, hooks, and module hierarchy).
+
+----------
+
+PyTorch dynamically infers the spatial dimensions as the input passes through layers.
+so only need channels
+
+----------
+
+
+figuring out what same padding is 
+its a function of the input kernel_size
+
+output size = (input_size - kernel_size + 2*padding)/stride + 1
+so same padding = ( kernel_size - stride ) / 2
+
+----------
+
+batch means doing backprop after a subset of the inputs, rather than all
+benefit is computational efficiency -> smaller batches means less loaded into ram 
+^ PyTorch stores intermediate activations in RAM (or GPU memory) during the forward pass, but it does so efficiently and dynamically, freeing up memory when possible.
+
+each batch produces an estimate of the gradient 
+better generalization?? how does that work
+
+batch norm is just doing some normalization on the outputs to reduce noise 
+
+nn.BatchNorm2d(output_channels),
+    - it normalizes each channel separately 
+----------
+
+            nn.ReLU(inplace=True),
+inplace:
+By default, nn.ReLU() creates a new tensor for the output.
+When inplace=True, ReLU modifies the input tensor directly instead of creating a new one.
+
+saves memory bc dont create new tensor
+----------
+
+self.conv = nn.Sequential(
+    nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1),
+    nn.BatchNorm2d(out_channels),
+    nn.ReLU(inplace=True),
+    nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1),
+    nn.BatchNorm2d(out_channels),
+    nn.ReLU(inplace=True)
+)
+
+is equivalent to:
+
+def forward(self, x):
+    x = self.conv1(x)
+    x = self.bn1(x)
+    x = self.relu1(x)
+    x = self.conv2(x)
+    x = self.bn2(x)
+    x = self.relu2(x)
+    return x
+
+
+
+
+---------
+Dataloader notes:
+
+torch dataloader handles batches
+must define __getitem__ and __len__
+
+its index based - need to load all and then fetch by index in the list
+
+in dataloader transform transforms the input
+target_transform transforms the expected output (mask in this case)

@@ -1,0 +1,30 @@
+Dataset split complete! 67 patients in train, 17 in test.
+
+test images: 148
+test masks: 148
+    8 gleason-3
+    7 gleason-4
+    25 gleason-5
+    108 healthy
+
+train images: 565
+train masks: 569
+    83 gleason-3
+    19 gleason-4
+    14 gleason-5
+    453 healthy
+
+
+Gleason is gleason GRADE GROUP ie we dont know the specific pattern combination found in the histo
+HOWEVER we do have the primary/secondary score in the biopsy sheet, so we could look that up
+but those are at cell level. here we're segmenting the entire lesion, so not the most helpful to know score
+
+when there were multiple biopsies from the same lesion, we take most frequently occuring score (w/ highest score as tie breaker)
+
+The International Society of Urological Pathology (ISUP) has introduced a simplified system of 5 Grade Groups
+to better classify prostate cancer, with each Grade Group corresponding to a range of Gleason scores. 
+Grade Group 1: Gleason scores 3+3 = 6 
+Grade Group 2: Gleason score 3+4 = 7 
+Grade Group 3: Gleason score 4+3 = 7 
+Grade Group 4: Gleason scores 4+4, 3+5, 5+3 = 8 
+Grade Group 5: Gleason scores 4+5, 5+4, 5+5 = 9/10 
