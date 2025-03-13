@@ -1,11 +1,11 @@
 import submitit
-from dataloader import ProstateMRISegmentationDataset
-import unet
+import torch
 
-def add(a, b):
-    u = unet.UNetEncoder(3)
-    x = ProstateMRISegmentationDataset('dataset_split/train/images', 'dataset_split/train/masks')
-    return a + b
+from utils.analyze_dataset import compute_mean_std
+from train import train
+
+device1 = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print("device outside submitit: ", device1)
 
 executor = submitit.AutoExecutor(folder="logs", slurm_max_num_timeout=10)
 executor.update_parameters(
@@ -15,8 +15,8 @@ executor.update_parameters(
     slurm_name="test"
 )
 
-job = executor.submit(add, 5, 7)  # will compute add(5, 7)
+job = executor.submit(compute_mean_std)  # will compute add(5, 7)
 print(job.job_id)  # ID of your job
 
 output = job.result()  # waits for completion and returns output
-print("done - got", output)
+print("done. output: ", output)

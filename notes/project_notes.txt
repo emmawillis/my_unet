@@ -28,3 +28,44 @@ Grade Group 2: Gleason score 3+4 = 7
 Grade Group 3: Gleason score 4+3 = 7 
 Grade Group 4: Gleason scores 4+4, 3+5, 5+3 = 8 
 Grade Group 5: Gleason scores 4+5, 5+4, 5+5 = 9/10 
+
+
+
+--------
+Dataloader
+we are having the model predict 4 channels
+where index 0 represents healthy, 1 is g3, 2 is g4, and 3 is g5
+so our unet input channels will be 3 (rgb) and output channels will be 4, each a binary mask 
+
+
+
+Training:
+Input: 3-channel 256x256 RGB images
+Output: 4-class binary segmentation masks
+Loss Function: CrossEntropyLoss
+Optimizer: Adam -> adagrad + RMSprop
+     -> keep moving average of gradients and squared gradients for each individual weight.
+
+Z-score normalization
+
+Why Use Z-Score Normalization for MRI?
+MRI images have high intensity variations due to:
+
+Differences in scanner hardware (Siemens, GE, Philips, etc.).
+Acquisition protocols (T1, T2, DWI, etc.).
+Variability in contrast agent usage.
+Differences in patient anatomy.
+Z-score normalization helps by: ✅ Standardizing the intensity distribution across different scans.
+✅ Reducing scanner-related variations, making the model focus on anatomical structures.
+✅ Improving generalization across different datasets/hospitals.
+
+This is especially useful for multi-center datasets, where different institutions may have slightly different image intensities.
+
+
+
+--------
+next steps:
+- get mri results
+- compare to other papers
+
+- try triplet loss!

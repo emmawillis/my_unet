@@ -74,3 +74,14 @@ its index based - need to load all and then fetch by index in the list
 
 in dataloader transform transforms the input
 target_transform transforms the expected output (mask in this case)
+
+-----
+
+In Python, when you import a module, any top-level code (outside functions or classes) 
+in that module runs immediately. This is also true if you only import one function from it
+
+
+
+-----
+Adam optimizer: TODO
+
